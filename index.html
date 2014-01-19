@@ -1,0 +1,214 @@
+<html>
+<head>
+<meta charset='utf-8'>
+<title>untitled</title>
+<meta name="viewport" content="width=device-width, user-scalable=no">
+<style>
+
+body {
+    margin: 5px;
+}
+table {
+    border-collapse: collapse;
+}
+th, td {
+    padding: 0px;
+}
+
+</style>
+</head>
+<body>
+<script src="http://code.jquery.com/jquery-2.0.3.min.js"></script>
+<script src="http://dglittle.github.io/gl519/index.js"></script>
+<script src="http://dglittle.github.io/gl519/random.js"></script>
+<script src="utils.js"></script>
+<script>
+
+tau = Math.PI * 2
+
+function dot(a, b) {
+	var sum = 0
+	for (var i = 0; i < a.length; i++)
+		sum += a[i] * b[i]
+	return sum
+}
+
+function sub(a, b) {
+	var x = []
+	for (var i = 0; i < a.length; i++)
+		x[i] = a[i] - b[i]
+	return x
+}
+
+function mul(a, b) {
+	var x = []
+	for (var i = 0; i < a.length; i++)
+		x[i] = a[i] * b[i]
+	return x
+}
+
+function mag(a) {
+	return Math.sqrt(dot(a, a))
+}
+
+function angleBetween(a, b) {
+	return Math.acos(dot(a, b) / (mag(a) * mag(b)))
+}
+
+function createRandomColor() {
+	return _.map(_.shuffle([Math.random() / 2 + 0.5, Math.random(), Math.random()]), function (x) { return Math.floor(x * 256) })
+}
+
+function colorToCss(c) {
+	return 'rgb(' + _.map(c, function (x) { return Math.floor(x) }).join(',') + ')'
+}
+
+function addSliderControl(d, cb) {
+	function getRelPos(d, e) {
+		var offset = d.offset()
+		return [e.pageX - offset.left, e.pageY - offset.top]
+	}
+
+	d.mousedown(function (e) {
+		e.preventDefault()
+		var pos = getRelPos(d, e)
+		cb(pos[0], pos[1])
+
+        var oldMove = document.onmousemove
+        document.onmousemove = function (e) {
+			var pos = getRelPos(d, e)
+			cb(pos[0], pos[1])
+        }
+        
+        var oldUp = document.onmouseup
+        document.onmouseup = function (e) {
+            document.onmousemove = oldMove
+            document.onmouseup = oldUp
+        }
+	})
+
+    d[0].ontouchstart = function (e) {
+        e.preventDefault()
+        var pos = getRelPos(d, e.touches[0])
+		cb(pos[0], pos[1])
+
+        var oldMove = document.ontouchmove
+        document.ontouchmove = function (e) {
+            e.preventDefault()
+	        var pos = getRelPos(d, e.touches[0])
+			cb(pos[0], pos[1])
+        }
+
+        var oldEnd = document.ontouchend
+        var oldCancel = document.ontouchcancel
+        document.ontouchend = document.ontouchcancel = function (e) {
+            document.ontouchmove = oldMove
+            document.ontouchend = oldEnd
+            document.ontouchcancel = oldCancel
+        }
+    }	
+}
+
+function drawColorSlider(comp, init, cb) {
+	function getColor(x) {
+		var c = [0, 0, 0]
+		c[comp] = x
+		return c
+	}
+	var h = 60
+	var d = $('<div style="width:100%;height:' + h + 'px;"/>')
+	var sliderWidth = 5
+	var slider = $('<div style="width:' + sliderWidth + 'px;height:' + h + 'px;z-index:100;background:linear-gradient(to bottom, #ffffff 0%,#000000 100%);position:relative;margin-right:' + -sliderWidth + 'px;margin-bottom:' + -h + 'px"/>').css('left', '0px')
+	d.append(slider)
+	d.append($('<div style="width:100%;height:' + h + 'px;"/>').css('background', 'linear-gradient(to right, black 0%,' + colorToCss(getColor(255)) + ' 100%)'))
+	var update = function (x) {
+		var w = d.width() - sliderWidth
+		if (x < 0) x = 0
+		if (x > w) x = w
+		slider.css('left', x + 'px')
+		x = _.lerp(0, 0, w, 255, x)
+		cb(x)
+	}
+	addSliderControl(d, update)
+	setTimeout(function () {
+		if (init != null)
+			update(_.lerp(0, 0, 255, d.width() - sliderWidth, init))
+	}, 0)
+	return d
+}
+
+function getYards(c1, c2) {
+	return Math.floor(_.lerp(0, 0, mag([255, 255, 255]), 300, mag(mul(sub(c1, c2), [1, 1, 1]))))
+	// return Math.floor(_.lerp(0, 0, mag([255, 255, 255]), 300, mag(mul(sub(c1, c2), [0.2126, 0.7152, 0.0722]))))
+}
+
+function drawState(state) {
+	var info = $('<div style="margin-bottom:5px"/>').text('hole ' + state.strokes.length + ' — strokes ' + state.strokes[state.strokes.length - 1] + ' — total ' + _.sum(state.strokes))
+
+	var ball = _.splitVert(1, 2, $('<div style="width:100%;height:100%;background:' + colorToCss(state.ballColor) + '">'), center($('<div/>').text('ball')))
+
+	var yards = getYards(state.flagColor, state.ballColor)
+	var done = yards <= 10
+
+	var flag = _.splitVert(1, 2, $('<div style="width:100%;height:100%;background:' + colorToCss(state.flagColor) + '">'), center($('<div/>').text(yards == 0 ? 'perfect!' : done ? 'good enough!' : 'flag at ' + yards + ' yards')))
+
+	var flagBall = _.splitHorz(.5, .5, ball, flag)
+
+	var sliders = $('<div style="margin-top:5px"/>')
+	_.each(_.range(3), function (i) {
+		sliders.append(drawColorSlider(i, state.swingColor[i], function (x) {
+			state.swingColor[i] = x
+		}))
+	})
+
+	if (done) {
+		if (state.strokes.length == 18) {
+			var swingButton = $('<button style="height:40px;width:100%;margin-top:5px"/>').text('play again!').click(function () {
+				state = {
+					strokes : [0],
+					flagColor : createRandomColor(),
+					ballColor : [0, 0, 0],
+					swingColor : [0, 0, 0]
+				}
+				g_div.empty().append(drawState(state))
+			})
+		} else {
+			var swingButton = $('<button style="height:40px;width:100%;margin-top:5px"/>').text('next hole!').click(function () {
+				state.strokes.push(0)
+				state.flagColor = createRandomColor()
+				state.ballColor = [0, 0, 0]
+				state.swingColor = state.ballColor.slice(0)
+				g_div.empty().append(drawState(state))
+			})
+		}
+	} else {
+		var swingButton = $('<button style="height:40px;width:100%;margin-top:5px"/>').text('swing!').click(function () {
+			state.strokes[state.strokes.length - 1]++
+			state.ballColor = state.swingColor
+			state.swingColor = state.ballColor.slice(0)
+			g_div.empty().append(drawState(state))
+		})
+	}
+
+	return _.splitVert(2, 1, info,
+		_.splitVert(1, 2, flagBall,
+			$('<div/>').append(sliders).append(swingButton)))
+}
+
+$(function () {
+
+	var state = {
+		strokes : [0],
+		flagColor : createRandomColor(),
+		ballColor : [0, 0, 0],
+		swingColor : [0, 0, 0]
+	}
+
+	g_div = $('<div style="width:300px;height:400px"/>')
+	$('body').append(g_div)
+	g_div.append(drawState(state))
+})
+
+</script>
+</body>
+</html>
