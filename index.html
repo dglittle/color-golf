@@ -196,6 +196,7 @@ function drawState(state) {
 }
 
 $(function () {
+	$('body').append($('<a href="https://github.com/dglittle/color-golf"><img width="64px" style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub"></a>'))
 
 	var state = {
 		strokes : [0],
@@ -205,8 +206,17 @@ $(function () {
 	}
 
 	g_div = $('<div style="width:300px;height:400px"/>')
-	$('body').append(g_div)
 	g_div.append(drawState(state))
+	$('body').append(g_div)
+
+	$.ajax({
+	    url : 'http://view-count.herokuapp.com/view/' +
+	        encodeURIComponent(location.href),
+	    xhrFields : { withCredentials: true },
+	    success : function (count) {
+	    	$('body').append($('<div style="font-size:small;color:lightgrey"/>').text('view count ' + count))
+	    }
+	})   	
 })
 
 </script>
