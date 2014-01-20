@@ -161,14 +161,18 @@ function drawColorSlider(buckets, comp, init, cb) {
 }
 
 function getYards(c1, c2, buckets) {
-	var x = 1 / (256 / buckets)
-	var x = [x, x, x]
-	c1 = mul(c1, x)
-	c2 = mul(c2, x)
+	function bucketize(c) {
+		var cc = []
+		for (var i = 0; i < c.length; i++)
+			cc.push(Math.round(_.lerp(0, 0, 255, buckets - 1, c[i])))
+		return cc
+	}
+	c1 = bucketize(c1)
+	c2 = bucketize(c2)
 	var sum = 0
 	for (var i = 0; i < c1.length; i++)
 		sum += Math.abs(c1[i] - c2[i])
-	return Math.round(sum)
+	return sum
 
 	// return Math.floor(_.lerp(0, 0, mag([255, 255, 255]), 300, mag(mul(sub(c1, c2), [1, 1, 1]))))
 	// return Math.floor(_.lerp(0, 0, mag([255, 255, 255]), 300, mag(mul(sub(c1, c2), [0.2126, 0.7152, 0.0722]))))
