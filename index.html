@@ -301,7 +301,7 @@ $(function () {
 	$('body').css('background', 'darkgrey')
 
 	g_state = createState()
-	g_div = $('<div style="padding:20px;border-radius:20px;width:320px;height:460px;background:lightgrey"/>')
+	g_div = $('<div style="box-sizing:border-box;padding:20px;border-radius:20px;width:320px;height:460px;background:lightgrey"/>')
 	$('body').append(center(g_div))
 	function onResize() {
 		g_div.empty().append(drawState())
