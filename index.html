@@ -19,8 +19,8 @@ th, td {
 </head>
 <body>
 <script src="http://code.jquery.com/jquery-2.0.3.min.js"></script>
-<script src="http://dglittle.github.io/gl519/index.js"></script>
-<script src="http://dglittle.github.io/gl519/random.js"></script>
+<script src="index.js"></script>
+<script src="random.js"></script>
 <script src="utils.js"></script>
 <script>
 
@@ -55,10 +55,13 @@ function angleBetween(a, b) {
 	return Math.acos(dot(a, b) / (mag(a) * mag(b)))
 }
 
+function bucketTo255(buckets, x) {
+	return Math.floor(_.lerp(0, 0, buckets - 1, 255, x))
+}
+
 function createRandomColor(buckets) {
 	function rand() {
-		var x = Math.floor(Math.random() * buckets)
-		return Math.floor(_.lerp(0, 0, buckets - 1, 255, x))
+		return bucketTo255(buckets, Math.floor(Math.random() * buckets))
 	}
 	while (true) {
 		var c = [rand(), rand(), rand()]
@@ -67,7 +70,9 @@ function createRandomColor(buckets) {
 }
 
 function colorToCss(c) {
-	return 'rgb(' + _.map(c, function (x) { return Math.floor(x) }).join(',') + ')'
+	if (c.length == 3)
+		return 'rgb(' + _.map(c, function (x) { return Math.floor(x) }).join(',') + ')'
+	return 'rgba(' + _.map(c.slice(0, 3), function (x) { return Math.floor(x) }).join(',') + ',' + c[3] + ')'
 }
 
 function addSliderControl(d, cb) {
@@ -116,40 +121,47 @@ function addSliderControl(d, cb) {
     }	
 }
 
-function drawColorSlider(buckets, comp, init, cb) {
+function drawColorSlider(buckets, comp, init, reveal, cb) {
+	if (reveal != null)
+		for (var i = 0; i < buckets; i++)
+			if (bucketTo255(buckets, i) == reveal) {
+				reveal = i
+				break
+			}
+
 	function getColor(x) {
 		var c = [0, 0, 0]
-		c[comp] = x
+		c[comp] = bucketTo255(buckets, x)
 		return c
 	}
 	var h = 60
 	var d = $('<div style="width:100%;height:' + h + 'px;"/>')
 
-	var table = '<table style="width:100%;height:100%"><tr>'
-	for (var i = 0; i < buckets; i++) {
-		table += '<td class="' + i + '" width="' + (100 / buckets) + '%" style="padding:2px;"><div style="width:100%;height:100%;background:' + colorToCss(getColor(_.lerp(0, 0, buckets - 1, 255, i))) + '"></div></td>'
+	function drawCells(highlight) {
+		var table = '<table style="width:100%;height:100%;"><tr>'
+		for (var i = 0; i < buckets; i++) {
+			table += '<td class="' + i + '" width="' + (100 / buckets) + '%">'
+			var opacity = (reveal != null && i != reveal) ? .3 : 1
+			if (highlight == i) {
+				table += '<div style="opacity:' + opacity + ';box-sizing:border-box;width:100%;height:' + h + 'px;background:' + colorToCss(getColor(i)) + ';border-radius:10px;padding:3px"><div style="box-sizing:border-box;width:100%;height:100%;border:2px solid white;border-radius:10px;background:' + colorToCss(getColor(i)) + ';background-clip:content-box;z-index:100"/></div>'
+			} else {
+				table += '<div style="opacity:' + opacity + ';box-sizing:border-box;width:100%;height:' + h + 'px;border-radius:10px;background:' + colorToCss(getColor(i)) + ';background-clip:content-box;z-index:100"/>'
+			}
+			table += '</td>'
+		}
+		table += '</tr></table>'
+		return $(table)
 	}
-	table += '</tr></table>'
-	d.append($(table))
 
-	var slider = $('<div style="position:absolute;border:1px solid black"/>')
-	d.append(slider)
+	d.append(drawCells(0))
 
 	var update = function (x) {
 		var w = d.width() - 1
 		if (x < 0) x = 0
 		if (x > w) x = w
 		x = Math.floor(_.lerp(0, 0, w + 1, buckets, x))
-		var dd = d.find('.' + x)
-		var pos = dd.offset()
-		slider.css({
-			left : pos.left + 'px',
-			top : pos.top + 'px',
-			width : dd.width() + 2,
-			height : dd.height() + 2
-		})
-
-		x = Math.floor(_.lerp(0, 0, buckets - 1, 255, x))
+		d.empty().append(drawCells(x))
+		x = bucketTo255(buckets, x)
 		cb(x)
 	}
 	addSliderControl(d, update)
@@ -179,65 +191,78 @@ function getYards(c1, c2, buckets) {
 }
 
 function drawState(state) {
+	if (!state) state = g_state
+	g_state = state
+
+	function drawButton(text, cb) {
+		return $('<button style="height:40px;width:100%;margin-top:10px;border-radius:10px"/>').text(text).click(cb)
+	}
 
 	if (state.strokes.length == state.maxHoles + 1) {
-		var d = $('<div/>')
-		function text(d, t) {
+		var d = $('<div style="width:100%;height:100%;text-align:left"/>')
+		function text(t) {
 			d.append($('<div/>').html(t))
 		}
-		text(d, 'final score: ' + _.sum(state.strokes))
+		text('<span style="font-size:large;font-weight:bold;">final score: ' + _.sum(state.strokes) + '</span>')
+		d.append($('<div style="width:1px;height:10px"/>').html('&nbsp;'))
 
-		var left = $('<div/>')
-		var right = $('<div/>')
 		_.each(state.strokes, function (s, i) {
-			if (s > 0) text(i < 9 ? left : right, '<span style="color:' + colorToCss(state.colors[i]) + '">●</span> hole ' + (i + 1) + ', strokes ' + s)
+			if (s > 0) text('<span style="color:' + colorToCss(state.colors[i]) + '">●</span> color ' + (i + 1) + ' took ' + s + ' ' + (s == 1 ? 'try!' : 'tries'))
 		})
-		d.append(_.splitHorz(.5, .5, left, right, false).css('width', '100%'))
 
-		var swingButton = $('<button style="height:40px;width:100%;margin-top:5px"/>').text('play again!').click(function () {
+		d.append($('<div style="width:1px;height:10px"/>').html('&nbsp;'))
+		d.append(drawButton('play again', function () {
 			g_div.empty().append(drawState(createState()))
-		})
-		d.append(swingButton)
+		}).css('margin-top', '0px'))
 
 		return d
 	}
 
 	var flagColor = state.colors[state.colors.length - 1]
 	var yards = getYards(flagColor, state.ballColor, state.colorBuckets)
-	var done = yards == 0
+	var stroke = state.strokes[state.strokes.length - 1]
+	var strokeText = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth'][stroke]
+	var fail = yards != 0 && strokeText == undefined
+	var done = yards == 0 || fail
 
-	var info = $('<div style="margin-bottom:5px"/>').text('hole ' + state.strokes.length + ' — strokes ' + state.strokes[state.strokes.length - 1] + ' — total ' + _.sum(state.strokes))
+	var info = _.splitHorz(.5, .5, center($('<div/>').text('your color')), center($('<div/>').text('goal color, ' + state.strokes.length + ' of ' + state.maxHoles)))
 
-	var ball = _.splitVert(1, 2, $('<div style="width:100%;height:100%;background:' + colorToCss(state.ballColor) + '">'), center($('<div/>').text('ball')))
+	var ball = _.splitVert(1, 2, $('<div style="width:100%;height:100%;border-radius:15px;background:' + colorToCss(state.ballColor) + '">'), center($('<div/>').text(!done ? strokeText + ' try' : fail ? 'nice try' : 'woot!')))
 
-	var flag = _.splitVert(1, 2, $('<div style="width:100%;height:100%;background:' + colorToCss(flagColor) + '">'), center($('<div/>').text(yards == 0 ? 'perfect!' : done ? 'good enough!' : 'flag at ' + yards + ' yards')))
+	var flag = _.splitVert(1, 2, $('<div style="width:100%;height:100%;border-radius:15px;background:' + colorToCss(flagColor) + '">'), center($('<div/>').text(yards == 0 ? 'matched!' : yards + ' shade' + (yards == 1 ? '' : 's') + ' away')))
 
 	var flagBall = _.splitHorz(.5, .5, ball, flag)
 
 	var sliders = $('<div style="margin-top:5px"/>')
 	_.each(_.range(3), function (i) {
-		sliders.append(drawColorSlider(state.colorBuckets, i, state.swingColor[i], function (x) {
-			state.swingColor[i] = x
+		sliders.append(drawColorSlider(state.colorBuckets, i, state.swingColor[i], fail ? flagColor[i] : null, function (x) {
+			if (x != state.swingColor[i]) {
+				state.swingColor[i] = x
+				if (swingButton.text() == instructions) {
+					swingButton.text('update your color').removeAttr('disabled')
+				}
+			}
 		}))
 	})
 
 	if (done) {
 		if (state.strokes.length == state.maxHoles) {
-			var swingButton = $('<button style="height:40px;width:100%;margin-top:5px"/>').text('see results!').click(function () {
+			var swingButton = drawButton('see results', function () {
 				stateNewHole(state)
 				g_div.empty().append(drawState(state))
 			})
 		} else {
-			var swingButton = $('<button style="height:40px;width:100%;margin-top:5px"/>').text('next hole!').click(function () {
+			var swingButton = drawButton('next color', function () {
 				stateNewHole(state)
 				g_div.empty().append(drawState(state))
 			})
 		}
 	} else {
-		var swingButton = $('<button style="height:40px;width:100%;margin-top:5px"/>').text('swing!').click(function () {
+		var instructions = 'choose shades to mix above'
+		var swingButton = drawButton(instructions, function () {
 			stateSwing(state)
 			g_div.empty().append(drawState(state))
-		})
+		}).attr('disabled', 'disabled')
 	}
 
 	return _.splitVert(2, 1, info,
@@ -247,8 +272,8 @@ function drawState(state) {
 
 function createState() {
 	var state = {}
-	state.maxHoles = 18
-	state.colorBuckets = 8
+	state.maxHoles = 10
+	state.colorBuckets = 7
 	state.strokes = []
 	state.colors = []
 	stateNewHole(state)
@@ -269,18 +294,26 @@ function stateSwing(state) {
 }
 
 $(function () {
-	$('body').append($('<a href="https://github.com/dglittle/color-golf"><img width="64px" style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub"></a>'))
+	if ($(window).width() > 700) {
+		$('body').append($('<a href="https://github.com/dglittle/color-golf"><img width="64px" style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png" alt="Fork me on GitHub"></a>'))
+	}
 
-	g_div = $('<div style="width:300px;height:400px"/>')
-	g_div.append(drawState(createState()))
-	$('body').append(g_div)
+	$('body').css('background', 'darkgrey')
+
+	g_state = createState()
+	g_div = $('<div style="padding:20px;border-radius:20px;width:320px;height:460px;background:lightgrey"/>')
+	$('body').append(center(g_div))
+	function onResize() {
+		g_div.empty().append(drawState())
+	}
+	onResize()
+	$(window).resize(onResize)
 
 	$.ajax({
 	    url : 'http://view-count.herokuapp.com/view/' +
 	        encodeURIComponent(location.href),
 	    xhrFields : { withCredentials: true },
 	    success : function (count) {
-	    	$('body').append($('<div style="font-size:small;color:lightgrey"/>').text('view count ' + count))
 	    }
 	})   	
 })
