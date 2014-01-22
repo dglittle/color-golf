@@ -231,7 +231,7 @@ function drawState(state) {
 	var yards = getYards(flagColor, state.ballColor, state.colorBuckets)
 	var hole = state.strokes.length
 	var stroke = state.strokes[state.strokes.length - 1]
-	var strokeText = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth'][stroke]
+	var strokeText = ['first', 'second', 'third', 'fourth', 'fifth', 'last'][stroke]
 	var fail = yards != 0 && strokeText == undefined
 	var done = yards == 0 || fail
 
