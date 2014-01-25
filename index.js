@@ -478,7 +478,7 @@ _.getUrlParams = function (url) {
     return params
 }
 
-function splitSizeHelper(prefix, size) {
+_.splitSizeHelper = function (prefix, size) {
     if (size == null) return ""
     if (size <= 1) return prefix + '="' + Math.round(100 * size) + '%"'
     return prefix + '="' + size + 'px"'
@@ -486,8 +486,8 @@ function splitSizeHelper(prefix, size) {
 
 _.splitHorz = function (aSize, bSize, a, b, fill) {
     if (fill === undefined) fill = true
-    aSize = splitSizeHelper('width', aSize)
-    bSize = splitSizeHelper('width', bSize)
+    aSize = _.splitSizeHelper('width', aSize)
+    bSize = _.splitSizeHelper('width', bSize)
     var t = $('<table ' + (fill ? 'style="width:100%;height:100%"' : '') + '><tr valign="top"><td class="a" ' + aSize + '></td><td class="b" ' + bSize + '></td></tr></table>')
     // don't do this:
     // t.find('.a').append(a)
@@ -501,8 +501,8 @@ _.splitHorz = function (aSize, bSize, a, b, fill) {
 
 _.splitVert = function (aSize, bSize, a, b, fill) {
     if (fill === undefined) fill = true
-    aSize = splitSizeHelper('height', aSize)
-    bSize = splitSizeHelper('height', bSize)
+    aSize = _.splitSizeHelper('height', aSize)
+    bSize = _.splitSizeHelper('height', bSize)
     var t = $('<table ' + (fill ? 'style="width:100%;height:100%"' : '') + '><tr valign="top"><td class="a" ' + aSize + '></td></tr><tr valign="top"><td class="b" ' + bSize + '></td></tr></table>')
     // don't do this:
     // t.find('.a').append(a)

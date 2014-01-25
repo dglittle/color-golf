@@ -21,7 +21,7 @@ function drawShareButtons(message, url, cb) {
     ]
 
     _.each(shares, function (share, i) {
-        d.append($('<img style="cursor:pointer;margin-right:10px"/>').attr('src', share.img).click(function () {
+        d.append($('<img style="cursor:pointer;' + (i < shares.length - 1 ? 'margin-right:10px' : '') + '"/>').attr('src', share.img).click(function () {
             cb(share.type)
             window.open(share.url, 'share url', 'height=400,width=500,resizable=yes')
         }))
@@ -40,6 +40,28 @@ function createTwitterShareLink(tweet) {
 
 function createGooglePlusShareLink(url) {
     return 'https://plus.google.com/share?url=' + _.escapeUrl(url)
+}
+
+function splitSizeHelper2(size) {
+    if (size == null) return ""
+    if (size <= 1) return Math.round(100 * size) + '%'
+    return size + 'px'
+}
+
+function splitHorzMedian(aSize, bSize, a, b, median, fill) {
+    if (fill === undefined) fill = true
+    aSize = _.splitSizeHelper('width', aSize)
+    bSize = _.splitSizeHelper('width', bSize)
+    mSize = splitSizeHelper2(median)
+    var t = $('<table ' + (fill ? 'style="width:100%;height:100%"' : '') + '><tr valign="top"><td class="a" ' + aSize + '></td><td width="' + mSize + '"><div style="width:' + mSize + '"/></td><td class="b" ' + bSize + '></td></tr></table>')
+    // don't do this:
+    // t.find('.a').append(a)
+    // t.find('.b').append(b)
+    var _a = t.find('.a')
+    var _b = t.find('.b')
+    _a.append(a)
+    _b.append(b)
+    return t
 }
 
 function grid(rows) {

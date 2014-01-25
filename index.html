@@ -199,41 +199,82 @@ function drawState(state) {
 		return $('<button style="height:40px;width:100%;margin-top:10px;border-radius:10px"/>').text(text).click(cb)
 	}
 
-	if (state.strokes.length == state.maxHoles + 1) {
+	if (state.showHome || state.strokes.length == 0 || state.strokes.length == state.maxHoles + 1) {
 		var score = _.sum(state.strokes)
 
-		var d = $('<div style="width:100%;height:100%;text-align:left"/>')
-		function text(t) {
-			d.append($('<div/>').html(t))
+		var topStuff = $('<div style="margin-bottom:20px"/>').append('<span style="font-size:large;font-weight:bold">color golf</span>')
+
+		function drawStat(title, content, center) {
+			var d = $('<div style="width:100%;"/>')
+			d.append($('<div style="width:100%;border-bottom:1px solid darkgrey;margin-bottom:5px;text-align:' + (center ? 'center' : 'left')+ '"/>').text(title))
+			d.append(content || '<div/>')
+			return d
 		}
-		text('<span style="font-size:large;font-weight:bold;">color golf — final score of ' + score + '</span>')
-		d.append($('<div style="width:1px;height:10px"/>').html('&nbsp;'))
 
+		var scoreChart = $('<div style="width:100%;text-align:left"/>')
 		_.each(state.strokes, function (s, i) {
-			if (s > 0) text('<span style="color:' + colorToCss(state.colors[i]) + '">●</span> color ' + (i + 1) + ' took ' + s + ' ' + (s == 1 ? 'try!' : 'tries'))
+			if (i < state.maxHoles) {
+				if (i < state.strokes.length - 1) {
+					var msg = s == 1 ? ' hole in one!' : ' took ' + s + ' tries'
+					scoreChart.append($('<div/>').html('<span style="color:' + colorToCss(state.colors[i]) + '">●</span><span style="font-size:small"> color ' + (i + 1) + msg + '</span>'))
+				} else {
+					scoreChart.append($('<div/>').html('<span style="color:' + colorToCss(state.colors[i]) + '">●</span><span style="font-size:small"> color ' + (i + 1) + ' in progress..</span>'))
+				}
+			}
 		})
+		if (state.strokes.length > state.maxHoles) {
+			scoreChart.append($('<div style="float:left;"/>').html('<span style="color:rgba(0,0,0,0)">●</span><span style="font-size:small;font-weight:bold"> final score: </span>'))
+			scoreChart.append($('<div style="float:left;font-size:xx-large;font-weight:bold;margin-left:5px"/>').text(score))
+			scoreChart.append($('<div style="clear:both"/>'))
+		}
+		if (state.strokes.length > 0 && state.strokes.length <= state.maxHoles) {
+			scoreChart.append(drawButton('continue game', function () {
+				g_div.empty().append(drawState(stateShowHome(state, false)))
+			}))
+		}
+		scoreChart.append(drawButton('new game', function () {
+			g_div.empty().append(drawState(stateNewGame(state)))
+		}))
+		scoreChart = drawStat('current game', scoreChart)
 
-		d.append($('<div style="width:1px;height:20px"/>').html('&nbsp;'))
-		d.append($('<div style="margin-bottom:5px"/>').text('let people know how you did:'))
-		d.append(drawShareButtons('I scored ' + score + ' in color golf!', location.href, function (type) {
+		var bestScore = drawStat('best score', $('<div style="text-align:center;font-size:xx-large;font-weight:bold"/>').text(state.stats.bestScore || '∞'), true).css('margin-bottom', '10px')
+
+		var holesInOne = $('<div style="text-align:center"/>')
+		var s = ''
+		function drawStar(i, size) {
+			var d = $('<span/>')
+			if (i < state.stats.holesInOne.length)
+				d.text('★').css('color', colorToCss(state.stats.holesInOne[i]))
+			else
+				d.text('☆').css('color', 'lightgrey')
+			if (size)
+				d.css('font-size', size)
+			return d
+		}
+		var numStars = 7 * 7
+		for (var i = 0; i < numStars; i++) {
+			holesInOne.append(drawStar(i))
+			if (i % 7 == 6)
+				holesInOne.append($('<br/>'))
+		}
+		holesInOne.append(drawStar(Math.max(numStars, state.stats.holesInOne.length - 1), '60px'))
+		holesInOne = drawStat('holes in one', holesInOne, true)
+
+		var shareButtons = $('<div/>').append(drawShareButtons(state.stats.bestScore ? 'My record in color golf is ' + state.stats.bestScore + '!' : 'Play color golf!', location.href, function (type) {
 			track(' shared by ' + type)
 		}))
 
-		d.append($('<div style="width:1px;height:20px"/>').html('&nbsp;'))
-		d.append(drawButton('play again', function () {
-			track(' played again')
-			g_div.empty().append(drawState(createState()))
-		}).css('margin-top', '0px'))
+		var middleStuff = splitHorzMedian(.5, .5, _.splitVert(1, 2, scoreChart, shareButtons), _.splitVert(2, 1, bestScore, holesInOne), 10)
 
-		return d
+		return _.splitVert(2, 1, topStuff, middleStuff)
 	}
 
 	var flagColor = state.colors[state.colors.length - 1]
 	var yards = getYards(flagColor, state.ballColor, state.colorBuckets)
 	var hole = state.strokes.length
 	var stroke = state.strokes[state.strokes.length - 1]
-	var strokeText = ['first', 'second', 'third', 'fourth', 'fifth', 'last'][stroke]
-	var fail = yards != 0 && strokeText == undefined
+	var strokeText = ['first', 'second', 'third', 'fourth', 'fifth', 'last'][stroke] || 'unknown'
+	var fail = yards != 0 && stroke == state.maxStrokesPerHole
 	var done = yards == 0 || fail
 
 	var info = _.splitVert(2, 2, center($('<div style="font-size:large;font-weight:bold;margin-bottom:10px"/>').text('color golf — round ' + hole + ' of ' + state.maxHoles)), _.splitHorz(.5, .5, center($('<div/>').text('your color')), center($('<div/>').text('goal color'))))
@@ -289,22 +330,58 @@ function drawState(state) {
 		}).attr('disabled', 'disabled')
 	}
 
+	if (done && state.strokes.length == state.maxHoles) {
+		var bottom = swingButton
+	} else {
+		var bottom = _.splitHorz(1 / state.colorBuckets, 1, drawButton('<', function () {
+			g_div.empty().append(drawState(stateShowHome(state, true)))
+		}), swingButton)
+	}
+
 	return _.splitVert(2, 1, info,
 		_.splitVert(1, 2, flagBall,
-			$('<div/>').append(sliders).append(swingButton)))
+			$('<div/>').append(sliders).append(bottom)))
+}
+
+function saveState(state) {
+	if (typeof(localStorage) != 'undefined') {
+		localStorage.colorGolf = _.json(state)
+	}
+}
+
+function loadState() {
+	try {
+		return _.unJson(localStorage.colorGolf)
+	} catch (e) {
+		return createState()
+	}
 }
 
 function createState() {
 	var state = {}
 	state.maxHoles = 10
+	state.maxStrokesPerHole = 6
 	state.colorBuckets = 7
+	state.showHome = true
+	state.stats = {
+		bestScore : null,
+		holesInOne : []
+	}
+	return stateReset(state)
+}
+
+function stateReset(state) {
 	state.strokes = []
 	state.colors = []
-	stateNewHole(state)
 	return state
 }
 
+function stateNewGame(state) {
+	return stateNewHole(stateReset(state))
+}
+
 function stateNewHole(state) {
+	state.showHome = false
 	state.strokes.push(0)
 	state.colors.push(createRandomColor(state.colorBuckets))
 	state.ballColor = [0, 0, 0]
@@ -312,6 +389,10 @@ function stateNewHole(state) {
 
 	state.prevBallColor = [0, 0, 0]
 	state.ballColorAnimStart = 0
+
+	saveState(state)
+
+	return state
 }
 
 function stateSwing(state) {
@@ -321,6 +402,29 @@ function stateSwing(state) {
 	state.strokes[state.strokes.length - 1]++
 	state.ballColor = state.swingColor
 	state.swingColor = state.ballColor.slice(0)
+
+	var yards = getYards(state.colors[state.colors.length - 1], state.ballColor, state.colorBuckets)
+	if (yards == 0 || state.strokes[state.strokes.length - 1] == state.maxStrokesPerHole) {
+		if (state.strokes[state.strokes.length - 1] == 1) {
+			state.stats.holesInOne.push(state.colors[state.colors.length - 1])
+		}
+		if (state.strokes.length == state.maxHoles) {
+			var score = _.sum(state.strokes)
+			if (!state.stats.bestScore || score < state.stats.bestScore) {
+				state.stats.bestScore = score
+			}
+		}
+	}
+
+	saveState(state)
+
+	return state
+}
+
+function stateShowHome(state, showHome) {
+	state.showHome = showHome
+	saveState(state)
+	return state
 }
 
 function track(tag) {
@@ -340,7 +444,7 @@ $(function () {
 
 	$('body').css('background', 'darkgrey')
 
-	g_state = createState()
+	g_state = loadState()
 	var backgroundColor = bucketTo255(13, 11)
 	backgroundColor = [backgroundColor, backgroundColor, backgroundColor]
 	g_div = $('<div style="box-sizing:border-box;padding:20px;border-radius:20px;width:320px;height:460px;background:' + colorToCss(backgroundColor) + '"/>')
