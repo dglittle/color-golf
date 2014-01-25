@@ -238,7 +238,20 @@ function drawState(state) {
 
 	var info = _.splitVert(2, 2, center($('<div style="font-size:large;font-weight:bold;margin-bottom:10px"/>').text('color golf — round ' + hole + ' of ' + state.maxHoles)), _.splitHorz(.5, .5, center($('<div/>').text('your color')), center($('<div/>').text('goal color'))))
 
-	var ball = _.splitVert(1, 2, $('<div style="width:100%;height:100%;border-radius:15px;background:' + colorToCss(state.ballColor) + '">'), center($('<div/>').text(!done ? strokeText + ' try' : fail ? 'nice try' : 'woot!')))
+	var ballItself = $('<div style="width:100%;height:100%;border-radius:15px;background:' + colorToCss(state.ballColor) + '">')
+	var ball = _.splitVert(1, 2, ballItself, center($('<div/>').text(!done ? strokeText + ' try' : fail ? 'nice try' : 'woot!')))
+
+	function updateBallColorAnim() {
+		var x = _.time() - state.ballColorAnimStart
+		if (x < 100) {
+			x = _.lerp(0, 0, 100, 1, x)
+			ballItself.css('background', colorToCss(_.map(state.prevBallColor, function (c, i) { return _.lerp(0, c, 1, state.ballColor[i], x) })))
+			setTimeout(updateBallColorAnim, 10)
+		} else {
+			ballItself.css('background', colorToCss(state.ballColor))
+		}
+	}
+	updateBallColorAnim()
 
 	var flag = _.splitVert(1, 2, $('<div style="width:100%;height:100%;border-radius:15px;background:' + colorToCss(flagColor) + '">'), center($('<div/>').text(yards == 0 ? 'matched!' : yards + ' shade' + (yards == 1 ? '' : 's') + ' away')))
 
@@ -296,9 +309,15 @@ function stateNewHole(state) {
 	state.colors.push(createRandomColor(state.colorBuckets))
 	state.ballColor = [0, 0, 0]
 	state.swingColor = [0, 0, 0]
+
+	state.prevBallColor = [0, 0, 0]
+	state.ballColorAnimStart = 0
 }
 
 function stateSwing(state) {
+	state.prevBallColor = state.ballColor
+	state.ballColorAnimStart = _.time()
+
 	state.strokes[state.strokes.length - 1]++
 	state.ballColor = state.swingColor
 	state.swingColor = state.ballColor.slice(0)
@@ -322,7 +341,9 @@ $(function () {
 	$('body').css('background', 'darkgrey')
 
 	g_state = createState()
-	g_div = $('<div style="box-sizing:border-box;padding:20px;border-radius:20px;width:320px;height:460px;background:lightgrey"/>')
+	var backgroundColor = bucketTo255(13, 11)
+	backgroundColor = [backgroundColor, backgroundColor, backgroundColor]
+	g_div = $('<div style="box-sizing:border-box;padding:20px;border-radius:20px;width:320px;height:460px;background:' + colorToCss(backgroundColor) + '"/>')
 	$('body').append(center(g_div))
 	function onResize() {
 		g_div.empty().append(drawState())
